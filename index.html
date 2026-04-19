@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+    <title>Stronghold Crusader Web</title>
+</head>
+<body>
+    <div id="screen_container"></div>
+
+    <script src="libv86.js"></script>
+    <script>
+    window.onload = function() {
+        var emulator = new V86Starter({
+            wasm_path: "v86.wasm",
+            memory_size: 512 * 1024 * 1024, // حجز 512MB رام للمحاكي
+            screen_container: document.getElementById("screen_container"),
+            bios: { url: "bios/seabios.bin" },
+            vga_bios: { url: "bios/vgabios.bin" },
+            cdrom: { url: "crusader.iso" }, // اسم ملف اللعبة الذي سترفعه
+            autostart: true,
+        });
+    }
+    </script>
+</body>
+</html>
