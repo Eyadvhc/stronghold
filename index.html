@@ -1,49 +1,30 @@
-<div id="loading-container" style="text-align: center; font-family: sans-serif; margin-top: 50px;">
-    <h2>جاري تحميل لعبة Stronghold...</h2>
-    <div style="width: 300px; background: #ddd; margin: 10px auto;">
-        <div id="progress-bar" style="width: 0%; height: 20px; background: #4CAF50;"></div>
-    </div>
-    <p id="status">جاري الاتصال...</p>
-    <p id="time-left">الوقت المتبقي: --:--</p>
-</div>
+<button onclick="save_game()">حفظ التقدم (Save State)</button>
+<button onclick="load_game()">تحميل التقدم (Load State)</button>
 
 <script>
-    const fileUrl = 'StrongholdCrusader.iso'; // تأكد من كتابة اسم ملفك هنا بدقة
-    const request = new XMLHttpRequest();
-    const startTime = new Date().getTime();
+    // دالة لحفظ حالة اللعبة في ذاكرة المتصفح
+    function save_game() {
+        emulator.save_state(function(err, state) {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            // تخزين الحالة في IndexedDB أو LocalStorage
+            const state_string = btoa(String.fromCharCode.apply(null, new Uint8Array(state)));
+            localStorage.setItem("stronghold_save", state_string);
+            alert("تم حفظ اللعبة في ذاكرة المتصفح!");
+        });
+    }
 
-    request.open('GET', fileUrl, true);
-
-    request.onprogress = function(event) {
-        if (event.lengthComputable) {
-            const loaded = event.loaded; // الحجم الذي تم تحميله
-            const total = event.total;   // الحجم الأصلي (1.2GB)
-            const percentComplete = (loaded / total) * 100;
-            
-            // حساب الوقت المتبقي
-            const currentTime = new Date().getTime();
-            const duration = (currentTime - startTime) / 1000;
-            const bps = loaded / duration;
-            const remainingBytes = total - loaded;
-            const secondsLeft = remainingBytes / bps;
-
-            // تحديث الواجهة
-            document.getElementById('progress-bar').style.width = percentComplete + '%';
-            document.getElementById('status').innerText = 
-                `تم تحميل ${(loaded / (1024 * 1024 * 1024)).toFixed(2)} GB من ${(total / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-            
-            const mins = Math.floor(secondsLeft / 60);
-            const secs = Math.round(secondsLeft % 60);
-            document.getElementById('time-left').innerText = `الوقت المتبقي: ${mins} دقيقة و ${secs} ثانية`;
+    // دالة لتحميل الحالة المحفوظة
+    function load_game() {
+        const state_string = localStorage.getItem("stronghold_save");
+        if (!state_string) {
+            alert("لا يوجد ملف حفظ سابق!");
+            return;
         }
-    };
-
-    request.onload = function() {
-        if (request.status === 200) {
-            document.getElementById('status').innerText = "اكتمل التحميل! جاري تشغيل المحاكي...";
-            // هنا تضع الكود الخاص بتشغيل v86 emulator
-        }
-    };
-
-    request.send();
+        const state_array = new Uint8Array(atob(state_string).split("").map(c => c.charCodeAt(0)));
+        emulator.restore_state(state_array);
+        alert("تمت استعادة اللعبة!");
+    }
 </script>
