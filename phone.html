@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eyad Remote Control - Stronghold</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --accent-color: #38bdf8;
+            --panel-color: #1e293b;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 { color: var(--accent-color); margin: 0; font-size: 1.5rem; }
+        .status { font-size: 0.8rem; opacity: 0.7; }
+
+        /* حاوية الهاتف */
+        .phone-container {
+            position: relative;
+            width: 320px; /* يمكنك تكبير الحجم حسب رغبتك */
+            height: auto;
+            border: 12px solid #334155;
+            border-radius: 36px;
+            background: #000;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        /* صورة البث القادمة من Screen Stream */
+        #screen-view {
+            width: 100%;
+            display: block;
+            pointer-events: none; /* لمنع التداخل مع طبقة اللمس */
+        }
+
+        /* طبقة اللمس الشفافة */
+        #touch-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            background: var(--panel-color);
+            border: 1px solid var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: var(--accent-color);
+            color: var(--bg-color);
+        }
+
+        .log {
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Stronghold Remote App</h1>
+        <div class="status" id="conn-status">متصل بـ: 192.168.1.4</div>
+    </div>
+
+    <div class="phone-container">
+        <img id="screen-view" src="http://192.168.1.4:8080/screen.mjpeg" alt="بث الشاشة">
+        
+        <div id="touch-layer"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="sendKey(4)">Back</button>
+        <button onclick="sendKey(3)">Home</button>
+        <button onclick="sendKey(187)">Recent</button>
+    </div>
+
+    <div class="log" id="debug-log">جاهز لاستقبال الأوامر...</div>
+
+    <script>
+        const layer = document.getElementById('touch-layer');
+        const log = document.getElementById('debug-log');
+        
+        // إعدادات الـ IP (تأكد أنها مطابقة لهاتفك)
+        const PHONE_IP = "192.168.1.4"; 
+        const TERMUX_PORT = "5000";
+
+        // وظيفة إرسال اللمس
+        layer.addEventListener('click', function(e) {
+            const rect = layer.getBoundingClientRect();
+            
+            // تحويل إحداثيات الماوس إلى إحداثيات شاشة الهاتف
+            // ملاحظة: استبدل 1080 و 2400 بدقة شاشة هاتفك الفعلية
+            const x = Math.round((e.clientX - rect.left) * (1080 / rect.width));
+            const y = Math.round((e.clientY - rect.top) * (2400 / rect.height));
+
+            const url = `http://${PHONE_IP}:${TERMUX_PORT}/action?type=tap&x=${x}&y=${y}`;
+            
+            fetch(url)
+                .then(() => {
+                    log.innerText = `تم إرسال اللمس إلى: X=${x}, Y=${y}`;
+                })
+                .catch(err => {
+                    log.innerText = "خطأ: تأكد من تشغيل سيرفر Termux!";
+                    console.error(err);
+                });
+        });
+
+        // وظيفة إرسال أزرار النظام (Home, Back, etc)
+        function sendKey(code) {
+            const url = `http://${PHONE_IP}:${TERMUX_PORT}/action?type=key&code=${code}`;
+            fetch(url).then(() => {
+                log.innerText = `تم إرسال مفتاح النظام: ${code}`;
+            });
+        }
+
+        // تحديث البث في حال التوقف
+        setInterval(() => {
+            const img = document.getElementById('screen-view');
+            if (!img.complete || img.naturalWidth === 0) {
+                img.src = img.src.split('?')[0] + '?' + new Date().getTime();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
