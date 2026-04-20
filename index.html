@@ -2,119 +2,52 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>Stronghold Crusader Online</title>
+    <title>لوحة تحكم إياد</title>
     <style>
-        body { background: #1a1a1a; color: white; text-align: center; font-family: sans-serif; }
-        #screen { margin: 20px auto; border: 5px solid #555; background: black; }
-        .progress-container { width: 80%; max-width: 500px; background: #333; margin: 20px auto; border-radius: 10px; overflow: hidden; display: block; }
-        #bar { width: 0%; height: 25px; background: #4CAF50; transition: width 0.3s; }
-        .controls { margin-top: 20px; }
-        button { padding: 10px 20px; cursor: pointer; background: #444; color: white; border: none; border-radius: 5px; margin: 5px; }
-        button:hover { background: #666; }
+        body { background: #121212; color: white; text-align: center; font-family: sans-serif; }
+        .phone-frame { 
+            position: relative; 
+            display: inline-block; 
+            border: 10px solid #333; 
+            border-radius: 20px; 
+            overflow: hidden; 
+            margin-top: 20px;
+        }
+        /* صورة البث القادمة من Screen Stream */
+        #screen-view { width: 350px; height: auto; display: block; }
+        /* طبقة اللمس الشفافة */
+        #touch-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 100; cursor: crosshair; 
+        }
+        .info { margin-top: 10px; color: #aaa; font-size: 12px; }
     </style>
 </head>
 <body>
-
-    <h1>لعبة Stronghold Crusader</h1>
+    <h2>جهازك الآن تحت التحكم 📱</h2>
     
-    <div id="loader">
-        <div class="progress-container">
-            <div id="bar"></div>
-        </div>
-        <p id="status">جاري فحص الذاكرة المؤقتة...</p>
-        <p id="time-left">الوقت المتبقي: --:--</p>
+    <div class="phone-frame">
+        <img id="screen-view" src="http://192.168.1.4:8080/screen.mjpeg">
+        <div id="touch-layer"></div>
     </div>
 
-    <canvas id="screen" width="800" height="600"></canvas>
-
-    <div class="controls">
-        <button onclick="saveGame()">حفظ الحالة (Save State)</button>
-        <button onclick="loadGame()">تحميل الحالة (Load State)</button>
-    </div>
-
-    <script src="libv86.js"></script>
+    <div class="info">اضغط على الصورة للتحكم في الهاتف الحقيقي</div>
 
     <script>
-        const BAR = document.getElementById("bar");
-        const STATUS = document.getElementById("status");
-        const TIME_LEFT = document.getElementById("time-left");
-        const ISO_URL = 'Stronghold Crusader Extreme HD - Copy.iso';
+        const layer = document.getElementById('touch-layer');
+        const SERVER_IP = "192.168.1.4"; // IP هاتفك
 
-        // 1. نظام تتبع التحميل الذكي
-        async function startApp() {
-            const startTime = Date.now();
-            
-            try {
-                const response = await fetch(ISO_URL);
-                const reader = response.body.getReader();
-                const contentLength = +response.headers.get('Content-Length');
-                
-                let receivedLength = 0;
-                let chunks = []; 
+        layer.addEventListener('click', (e) => {
+            const rect = layer.getBoundingClientRect();
+            // تحويل إحداثيات المتصفح لإحداثيات الهاتف (تعدل حسب دقة شاشتك)
+            const x = Math.round((e.clientX - rect.left) * (1080 / rect.width));
+            const y = Math.round((e.clientY - rect.top) * (2400 / rect.height));
 
-                while(true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-
-                    chunks.push(value);
-                    receivedLength += value.length;
-
-                    // حساب النسبة والوقت
-                    let percent = (receivedLength / contentLength) * 100;
-                    BAR.style.width = percent + "%";
-                    
-                    let elapsed = (Date.now() - startTime) / 1000;
-                    let speed = receivedLength / elapsed;
-                    let remaining = (contentLength - receivedLength) / speed;
-                    
-                    STATUS.innerText = `تم تحميل ${(receivedLength / (1024*1024)).toFixed(1)} ميجا من اصل 1.2 جيجا`;
-                    TIME_LEFT.innerText = `المتبقي: ${Math.round(remaining / 60)} دقيقة تقريباً`;
-                }
-
-                // تشغيل المحاكي بعد التحميل
-                const blob = new Blob(chunks);
-                initEmulator(blob);
-                document.getElementById("loader").style.display = "none";
-
-            } catch (err) {
-                STATUS.innerText = "خطأ في التحميل: تأكد من اتصال الإنترنت";
-            }
-        }
-
-        let emulator;
-        function initEmulator(isoBlob) {
-            emulator = new V86Starter({
-                canvas: document.getElementById("screen"),
-                memory_size: 512 * 1024 * 1024, // 512MB RAM للمحاكي (ممتاز لـ 12GB عندك)
-                cdrom: { buffer: isoBlob },
-                autostart: true,
-            });
-        }
-
-        // 2. نظام حفظ التقدم (IndexedDB عبر LocalStorage)
-        function saveGame() {
-            emulator.save_state((err, state) => {
-                if (err) return alert("خطأ في الحفظ");
-                const blob = new Blob([state]);
-                const reader = new FileReader();
-                reader.readAsDataURL(blob);
-                reader.onloadend = () => {
-                    localStorage.setItem("game_save", reader.result);
-                    alert("تم حفظ تاريخك العسكري بنجاح!");
-                };
-            });
-        }
-
-        function loadGame() {
-            const data = localStorage.getItem("game_save");
-            if (!data) return alert("لا يوجد ملف حفظ!");
-            fetch(data).then(res => res.arrayBuffer()).then(buffer => {
-                emulator.restore_state(buffer);
-                alert("تم استرجاع الحالة!");
-            });
-        }
-
-        startApp();
+            // إرسال الأمر لسيرفر Termux
+            fetch(`http://${SERVER_IP}:5000/action?type=tap&x=${x}&y=${y}`)
+                .then(() => console.log(`تم الضغط: ${x}, ${y}`))
+                .catch(err => alert("تأكد من تشغيل Termux!"));
+        });
     </script>
 </body>
 </html>
